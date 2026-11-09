@@ -1,0 +1,13 @@
+{
+  "name": "Nova",
+  "short_name": "Nova",
+  "description": "ניהול משחקים ושליטה במחשב",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#090b12",
+  "theme_color": "#7653d9",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
+
