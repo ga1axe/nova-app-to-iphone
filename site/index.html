@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090b12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nova">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>Nova</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#090b12;color:#f4f6ff;font:16px system-ui,sans-serif;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);max-width:720px;margin-inline:auto}header{display:flex;align-items:center;gap:12px;padding:18px 4px;border-bottom:1px solid #26304a}header img{width:48px;height:48px;border-radius:12px}h1{font-size:24px;margin:0}h2{font-size:21px}p,.muted{color:#a3adc3;line-height:1.6}.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;position:sticky;top:0;background:#090b12;padding:12px 0;z-index:2}.tab,button{border:0;border-radius:12px;background:#202941;color:#fff;padding:13px;font:inherit;font-weight:650}.tab.active,.primary{background:#7653d9}.page{display:none}.page.active{display:block}.card{background:#121725;border:1px solid #26304a;border-radius:16px;padding:16px;margin:12px 0}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}input,textarea,select{width:100%;border:1px solid #39445e;border-radius:12px;background:#0e1220;color:#fff;padding:13px;font:inherit;margin:6px 0}#games{display:grid;gap:10px}.game{display:flex;align-items:center;gap:8px}.game span{flex:1}#screen{width:100%;border-radius:12px;display:none;direction:ltr}.status{min-height:28px;color:#55d6ff}.install{font-size:14px}
+  </style>
+</head>
+<body>
+  <header><img src="icon.svg" alt=""><div><h1>Nova</h1><div class="muted">המשחקים והמחשב שלך</div></div></header>
+  <nav class="tabs"><button class="tab active" data-page="home">בית</button><button class="tab" data-page="gamesPage">משחקים</button><button class="tab" data-page="remote">שליטה</button></nav>
+  <main>
+    <section id="home" class="page active"><div class="card"><h2>Nova באייפון</h2><p>נהל רשימת משחקים והתחבר למחשב כאשר שיתוף מרחוק מופעל ב־Nova במחשב.</p><p class="install">להתקנה: פתח את תפריט השיתוף ב־Safari ובחר ״הוסף למסך הבית״.</p></div><div class="card"><strong>משחקים ברשימה</strong><div id="count" class="muted"></div></div></section>
+    <section id="gamesPage" class="page"><h2>המשחקים שלי</h2><div class="row"><input id="newGame" maxlength="60" placeholder="שם המשחק"><button id="addGame" class="primary">הוסף</button></div><div id="games"></div></section>
+    <section id="remote" class="page"><h2>שליטה במחשב</h2><div class="card"><p>ב־Nova במחשב, הפעל שליטה דרך האינטרנט והעתק את ההזמנה לכאן.</p><textarea id="invite" rows="5" placeholder='{"url":"wss://…","room":"…","token":"…"}'></textarea><button id="connect" class="primary">התחבר</button><button id="disconnect">נתק</button><div id="status" class="status"></div></div><img id="screen" alt="מסך המחשב"><div id="controls" class="card" hidden><div class="row"><button data-key="enter">Enter</button><button data-key="escape">Esc</button><button data-scroll="3">גלול למעלה</button><button data-scroll="-3">גלול למטה</button></div><input id="typing" maxlength="256" placeholder="טקסט להקלדה במחשב"><button id="sendText">שלח טקסט</button></div></section>
+  </main>
+  <script>
+    const store='nova.web.v1';let games=[];try{games=JSON.parse(localStorage.getItem(store)||'[]');if(!Array.isArray(games))games=[]}catch{games=[]}
+    const save=()=>localStorage.setItem(store,JSON.stringify(games));
+    function render(){const list=document.querySelector('#games');list.replaceChildren();for(const name of games){const row=document.createElement('div');row.className='card game';const title=document.createElement('span');title.textContent=name;const remove=document.createElement('button');remove.textContent='הסר';remove.onclick=()=>{games=games.filter(x=>x!==name);save();render()};row.append(title,remove);list.append(row)}document.querySelector('#count').textContent=games.length?games.length+' משחקים':'עדיין לא נוספו משחקים'}
+    document.querySelector('#addGame').onclick=()=>{const input=document.querySelector('#newGame');const name=input.value.trim();if(name&&!games.some(x=>x.toLowerCase()===name.toLowerCase())){games.push(name);save();render();input.value=''}};render();
+    document.querySelectorAll('.tab').forEach(button=>button.onclick=()=>{document.querySelectorAll('.tab,.page').forEach(x=>x.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.page).classList.add('active')});
+    let socket=null,nextFrame=null;const status=document.querySelector('#status'),screen=document.querySelector('#screen'),controls=document.querySelector('#controls');
+    function send(value){if(socket?.readyState===1)socket.send(JSON.stringify(value))}
+    function stop(message='מנותק'){clearTimeout(nextFrame);socket?.close();socket=null;screen.style.display='none';screen.removeAttribute('src');controls.hidden=true;status.textContent=message}
+    document.querySelector('#disconnect').onclick=()=>stop();
+    document.querySelector('#connect').onclick=()=>{let data;try{data=JSON.parse(document.querySelector('#invite').value);const parsed=new URL(data.url);if(parsed.protocol!=='wss:'||!data.room||!data.token)throw 0}catch{status.textContent='ההזמנה אינה תקינה.';return}stop('מתחבר…');socket=new WebSocket(data.url);socket.onopen=()=>socket.send(JSON.stringify({role:'viewer',room:data.room,token:data.token}));socket.onmessage=event=>{let message;try{message=JSON.parse(event.data)}catch{return}if(message.type==='connected'){status.textContent='מחובר למחשב';controls.hidden=false;send({type:'frame'})}if(message.type==='frame'&&typeof message.jpeg==='string'){screen.src='data:image/jpeg;base64,'+message.jpeg;screen.style.display='block';clearTimeout(nextFrame);nextFrame=setTimeout(()=>send({type:'frame'}),250)}};socket.onclose=()=>stop('החיבור הסתיים.');socket.onerror=()=>status.textContent='לא ניתן להתחבר לשרת.'};
+    screen.onclick=event=>{const box=screen.getBoundingClientRect();send({type:'click',x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height,button:'left'})};
+    document.querySelectorAll('[data-key]').forEach(x=>x.onclick=()=>send({type:'key',key:x.dataset.key}));document.querySelectorAll('[data-scroll]').forEach(x=>x.onclick=()=>send({type:'scroll',delta:Number(x.dataset.scroll)}));document.querySelector('#sendText').onclick=()=>{const input=document.querySelector('#typing');if(input.value)send({type:'text',text:input.value});input.value=''};
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)stop('החיבור נותק כשהאפליקציה עברה לרקע.')});
+  </script>
+</body></html>
+
